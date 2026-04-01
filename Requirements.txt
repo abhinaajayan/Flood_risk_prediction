@@ -1,0 +1,7 @@
+ Python 3.10+
+- pip packages:
+  - Flask
+  - pandas
+  - joblib
+  - scikit-learn
+  - numpy
