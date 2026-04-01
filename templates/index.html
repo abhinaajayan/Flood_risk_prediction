@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flood Risk Prediction System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@300;400;500;600&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --deep: #020d1a;
+            --abyss: #041428;
+            --ocean: #063152;
+            --mid: #0a4a78;
+            --blue: #1171b6;
+            --bright: #22a6e0;
+            --foam: #7dd8f8;
+            --white: #e8f4fc;
+            --warn: #f0a500;
+            --danger: #e03a3a;
+            --safe: #22c97a;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Barlow', sans-serif;
+            background: var(--deep);
+            color: var(--white);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* ── Animated water background ── */
+        .water-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .water-bg::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 120% 60% at 50% 110%, #0a3a6e 0%, transparent 60%),
+                radial-gradient(ellipse 80% 40% at 20% 80%, #063366 0%, transparent 50%),
+                radial-gradient(ellipse 60% 60% at 80% 90%, #041e40 0%, transparent 55%),
+                linear-gradient(180deg, #020d1a 0%, #041428 40%, #052040 70%, #073060 100%);
+        }
+
+        .wave {
+            position: absolute;
+            bottom: 0;
+            left: -50%;
+            width: 200%;
+            border-radius: 40%;
+            opacity: 0.12;
+            animation: wave-anim linear infinite;
+        }
+        .wave-1 { height: 260px; background: #1171b6; animation-duration: 12s; bottom: -80px; }
+        .wave-2 { height: 220px; background: #22a6e0; animation-duration: 17s; bottom: -100px; animation-direction: reverse; opacity: 0.08; }
+        .wave-3 { height: 180px; background: #7dd8f8; animation-duration: 22s; bottom: -120px; opacity: 0.05; }
+
+        @keyframes wave-anim {
+            0%   { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Floating particles */
+        .particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(34, 166, 224, 0.4);
+            animation: float-up linear infinite;
+        }
+        @keyframes float-up {
+            0%   { transform: translateY(0) translateX(0); opacity: 0; }
+            10%  { opacity: 1; }
+            90%  { opacity: 0.6; }
+            100% { transform: translateY(-100vh) translateX(40px); opacity: 0; }
+        }
+
+        /* Rain */
+        .rain { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+        .drop {
+            position: absolute;
+            width: 1px;
+            background: linear-gradient(transparent, rgba(125, 216, 248, 0.4));
+            animation: rain-fall linear infinite;
+        }
+        @keyframes rain-fall {
+            0%   { transform: translateY(-20px); opacity: 0; }
+            5%   { opacity: 1; }
+            95%  { opacity: 0.5; }
+            100% { transform: translateY(100vh); opacity: 0; }
+        }
+
+        /* ── Layout ── */
+        .page-wrapper {
+            position: relative;
+            z-index: 1;
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 40px 20px 80px;
+        }
+
+        /* ── Header ── */
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+            animation: fade-down 0.9s ease both;
+        }
+        @keyframes fade-down {
+            from { opacity: 0; transform: translateY(-30px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo-icon {
+            font-size: 3.5rem;
+            display: block;
+            margin-bottom: 10px;
+            filter: drop-shadow(0 0 20px rgba(34,166,224,0.6));
+            animation: pulse-glow 3s ease-in-out infinite;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { filter: drop-shadow(0 0 20px rgba(34,166,224,0.6)); }
+            50%       { filter: drop-shadow(0 0 40px rgba(34,166,224,1)); }
+        }
+
+        header h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(2.6rem, 6vw, 4.2rem);
+            letter-spacing: 4px;
+            background: linear-gradient(135deg, var(--foam) 0%, var(--bright) 50%, var(--blue) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1;
+            text-shadow: none;
+        }
+        header p {
+            margin-top: 10px;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 1rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(125,216,248,0.6);
+        }
+
+        /* ── Alert banner ── */
+        .alert-strip {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(90deg, rgba(240,165,0,0.15), rgba(240,165,0,0.05));
+            border: 1px solid rgba(240,165,0,0.3);
+            border-left: 4px solid var(--warn);
+            border-radius: 8px;
+            padding: 12px 20px;
+            margin-bottom: 36px;
+            font-size: 0.85rem;
+            color: rgba(240,215,150,0.9);
+            letter-spacing: 1px;
+            animation: fade-down 1.1s ease both;
+        }
+        .alert-strip span { font-size: 1.1rem; }
+
+        /* ── Form card ── */
+        .form-card {
+            background: rgba(4, 20, 40, 0.75);
+            backdrop-filter: blur(18px);
+            border: 1px solid rgba(34,166,224,0.18);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow:
+                0 0 0 1px rgba(34,166,224,0.06),
+                0 20px 60px rgba(2,13,26,0.8),
+                inset 0 1px 0 rgba(125,216,248,0.1);
+            animation: fade-up 1s ease both 0.2s;
+        }
+        @keyframes fade-up {
+            from { opacity: 0; transform: translateY(30px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Section headings ── */
+        .section-label {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 0.72rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--bright);
+            margin: 32px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(34,166,224,0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section-label::before {
+            content: '';
+            width: 20px; height: 2px;
+            background: var(--bright);
+            display: inline-block;
+        }
+        .section-label:first-child { margin-top: 0; }
+
+        /* ── Grid ── */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+        .span-2 { grid-column: span 2; }
+
+        /* ── Input group ── */
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .field label {
+            font-size: 0.72rem;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: rgba(125,216,248,0.6);
+            font-weight: 500;
+        }
+        .field input,
+        .field select {
+            background: rgba(6,49,82,0.6);
+            border: 1px solid rgba(34,166,224,0.22);
+            border-radius: 8px;
+            padding: 11px 14px;
+            color: var(--white);
+            font-family: 'Barlow', sans-serif;
+            font-size: 0.92rem;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+            width: 100%;
+        }
+        .field input::placeholder { color: rgba(125,216,248,0.25); }
+        .field input:focus,
+        .field select:focus {
+            border-color: var(--bright);
+            background: rgba(10,74,120,0.5);
+            box-shadow: 0 0 0 3px rgba(34,166,224,0.12);
+        }
+        .field select option { background: #041428; }
+
+        /* ── Submit button ── */
+        .btn-submit {
+            margin-top: 36px;
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #0d5fa6 0%, #1a8fcf 50%, #22a6e0 100%);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 24px rgba(17,113,182,0.45);
+        }
+        .btn-submit::before {
+            content: '';
+            position: absolute;
+            top: -50%; left: -75%;
+            width: 50%; height: 200%;
+            background: rgba(255,255,255,0.12);
+            transform: skewX(-20deg);
+            transition: left 0.5s ease;
+        }
+        .btn-submit:hover::before { left: 125%; }
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(17,113,182,0.65);
+        }
+        .btn-submit:active { transform: translateY(0); }
+
+        /* ── Result card ── */
+        .result-card {
+            margin-top: 30px;
+            border-radius: 18px;
+            padding: 36px;
+            position: relative;
+            overflow: hidden;
+            animation: result-pop 0.6s cubic-bezier(0.34,1.56,0.64,1) both;
+        }
+        @keyframes result-pop {
+            from { opacity: 0; transform: scale(0.92); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+        .result-card.low    { background: linear-gradient(135deg,rgba(0,60,30,0.8),rgba(0,40,20,0.9)); border: 1px solid rgba(34,201,122,0.35); }
+        .result-card.medium { background: linear-gradient(135deg,rgba(60,45,0,0.8),rgba(40,30,0,0.9)); border: 1px solid rgba(240,165,0,0.35); }
+        .result-card.high   { background: linear-gradient(135deg,rgba(60,10,10,0.8),rgba(40,5,5,0.9)); border: 1px solid rgba(224,58,58,0.35); }
+
+        .result-card::before {
+            content: '';
+            position: absolute;
+            top: -30px; right: -30px;
+            width: 180px; height: 180px;
+            border-radius: 50%;
+            opacity: 0.06;
+        }
+        .result-card.low::before    { background: var(--safe); }
+        .result-card.medium::before { background: var(--warn); }
+        .result-card.high::before   { background: var(--danger); }
+
+        .result-header {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 0.7rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            opacity: 0.55;
+            margin-bottom: 20px;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+        .result-item { text-align: center; }
+        .result-item .ri-label {
+            font-size: 0.68rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            opacity: 0.5;
+            margin-bottom: 6px;
+        }
+        .result-item .ri-value {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2rem;
+            letter-spacing: 2px;
+            line-height: 1;
+        }
+        .result-card.low    .ri-value { color: var(--safe); }
+        .result-card.medium .ri-value { color: var(--warn); }
+        .result-card.high   .ri-value { color: var(--danger); }
+
+        /* ── Footer ── */
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            font-size: 0.75rem;
+            letter-spacing: 2px;
+            color: rgba(125,216,248,0.2);
+            text-transform: uppercase;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+            .form-card { padding: 24px 18px; }
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            .result-grid { grid-template-columns: 1fr; gap: 14px; }
+            .span-2 { grid-column: span 1; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Animated background layers -->
+<div class="water-bg">
+    <div class="wave wave-1"></div>
+    <div class="wave wave-2"></div>
+    <div class="wave wave-3"></div>
+</div>
+
+<div class="rain" id="rain"></div>
+<div class="particles" id="particles"></div>
+
+<div class="page-wrapper">
+
+    <header>
+        <span class="logo-icon">🌊</span>
+        <h1>Flood Risk Prediction</h1>
+        <p>Hydrological Intelligence System</p>
+    </header>
+
+    <div class="alert-strip">
+        <span>⚠️</span>
+        EARLY WARNING · Enter geographic and environmental parameters to assess flood vulnerability
+    </div>
+
+    <div class="form-card">
+        <form method="POST" id="riskForm">
+
+            <div class="section-label">Geographic Coordinates</div>
+            <div class="grid-2">
+                <div class="field">
+                    <label>Latitude</label>
+                    <input type="text" name="latitude" placeholder="e.g. 11.6085" required>
+                </div>
+                <div class="field">
+                    <label>Longitude</label>
+                    <input type="text" name="longitude" placeholder="e.g. 76.0849" required>
+                </div>
+                <div class="field">
+                    <label>Elevation (m)</label>
+                    <input type="text" name="elevation_m" placeholder="e.g. 45" required>
+                </div>
+                <div class="field">
+                    <label>Distance to River (m)</label>
+                    <input type="text" name="distance_to_river_m" placeholder="e.g. 200" required>
+                </div>
+            </div>
+
+            <div class="section-label">Land & Soil Classification</div>
+            <div class="grid-3">
+                <div class="field">
+                    <label>Land Cover</label>
+                    <select name="landcover">
+                        {% for option in landcover_options %}
+                        <option value="{{ option }}">{{ option }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Soil Type</label>
+                    <select name="soil_type">
+                        {% for option in soil_options %}
+                        <option value="{{ option }}">{{ option }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Urban / Rural</label>
+                    <select name="urban_rural">
+                        {% for option in urban_rural_options %}
+                        <option value="{{ option }}">{{ option }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="section-label">Demographic & Infrastructure</div>
+            <div class="grid-2">
+                <div class="field">
+                    <label>Population Density (per km²)</label>
+                    <input type="text" name="population_density_per_km2" placeholder="e.g. 850" required>
+                </div>
+                <div class="field">
+                    <label>Built-up Area (%)</label>
+                    <input type="text" name="built_up_percent" placeholder="e.g. 62" required>
+                </div>
+                <div class="field">
+                    <label>Infrastructure Score</label>
+                    <input type="text" name="infrastructure_score" placeholder="e.g. 0.65" required>
+                </div>
+                <div class="field">
+                    <label>Historical Flood Count</label>
+                    <input type="text" name="historical_flood_count" placeholder="e.g. 4" required>
+                </div>
+            </div>
+
+            <div class="section-label">Rainfall & Hydrology</div>
+            <div class="grid-2">
+                <div class="field">
+                    <label>Rainfall — Last 7 Days (mm)</label>
+                    <input type="text" name="rainfall_7d_mm" placeholder="e.g. 210" required>
+                </div>
+                <div class="field">
+                    <label>Monthly Rainfall (mm)</label>
+                    <input type="text" name="monthly_rainfall_mm" placeholder="e.g. 480" required>
+                </div>
+                <div class="field">
+                    <label>Drainage Index</label>
+                    <input type="text" name="drainage_index" placeholder="e.g. 0.4" required>
+                </div>
+                <div class="field">
+                    <label>Inundation Area (sqm)</label>
+                    <input type="text" name="inundation_area_sqm" placeholder="e.g. 5000" required>
+                </div>
+            </div>
+
+            <div class="section-label">Vegetation & Spectral Indices</div>
+            <div class="grid-2">
+                <div class="field">
+                    <label>NDVI</label>
+                    <input type="text" name="ndvi" placeholder="e.g. 0.38" required>
+                </div>
+                <div class="field">
+                    <label>NDWI</label>
+                    <input type="text" name="ndwi" placeholder="e.g. 0.21" required>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit">⚡ Analyse Flood Risk</button>
+        </form>
+    </div>
+
+    {% if prediction %}
+    <div class="result-card {% if risk_level == 'Low' %}low{% elif risk_level == 'Medium' %}medium{% else %}high{% endif %}">
+        <div class="result-header">📊 Prediction Results</div>
+        <div class="result-grid">
+            <div class="result-item">
+                <div class="ri-label">Risk Score</div>
+                <div class="ri-value">{{ prediction }}</div>
+            </div>
+            <div class="result-item">
+                <div class="ri-label">Risk Level</div>
+                <div class="ri-value">{{ risk_level }}</div>
+            </div>
+            <div class="result-item">
+                <div class="ri-label">Habitable</div>
+                <div class="ri-value">{{ is_good_to_live }}</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <footer>© Flood Intelligence · Hydrological Risk Assessment Platform</footer>
+</div>
+
+<script>
+    /* Rain drops */
+    const rain = document.getElementById('rain');
+    for (let i = 0; i < 80; i++) {
+        const d = document.createElement('div');
+        d.className = 'drop';
+        const h = Math.random() * 80 + 20;
+        d.style.cssText = `
+            left: ${Math.random() * 100}%;
+            height: ${h}px;
+            animation-duration: ${Math.random() * 1.2 + 0.6}s;
+            animation-delay: ${Math.random() * 3}s;
+            opacity: ${Math.random() * 0.5 + 0.1};
+        `;
+        rain.appendChild(d);
+    }
+
+    /* Floating bubbles */
+    const particles = document.getElementById('particles');
+    for (let i = 0; i < 18; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        const size = Math.random() * 5 + 2;
+        p.style.cssText = `
+            width: ${size}px;
+            height: ${size}px;
+            left: ${Math.random() * 100}%;
+            bottom: ${Math.random() * 30}%;
+            animation-duration: ${Math.random() * 10 + 8}s;
+            animation-delay: ${Math.random() * 8}s;
+        `;
+        particles.appendChild(p);
+    }
+</script>
+
+</body>
+</html>
